@@ -2250,7 +2250,7 @@ function initVoz(){const b=$("hablaBtn");b.textContent="🔊 "+saludo();
     const ctx=[S.date,addDays(S.date,1)].map(f=>`${cap(fmtLong.format(parse(f)))}:\n`+dayRows(f).map(r=>`- ${r.k}: ${r.v.join(" | ")}`).join("\n")).join("\n\n");
     const week=[0,1,2,3,4,5,6].map(i=>{const f=addDays(monday(S.date),i);return `${cap(fmtLong.format(parse(f)))}: ${weekAgenda(f)} · Calendario: ${(CAL.byDay[f]||[]).map(e=>(e.h||"todo el día")+" "+e.t).join("; ")||"nada"} · Ejercicio: ${ROUT[SCHED[parse(f).getDay()]].t}`}).join("\n");
     try{const r=await sample(`Eres el asistente personal de Nina que se llama Lola, dentro de su app. Contesta en español, en 1 a 4 frases cortas y naturales, pensadas para leerse en voz alta (sin listas ni emojis). Usa SOLO los datos de abajo; si algo no está, di que no lo tienes apuntado. No inventes nada.\n\nHoy y mañana:\n${ctx}\n\nResto de la semana:\n${week}\n\n${recCtx(q)}Pregunta de Nina: ${q}`,{modelTier:"quick",onText:({text})=>{out.textContent=text}});
-      out.textContent=r.text;hfSay(q,r.text);speak(r.text)}
+      out.textContent=r.text;hfSay(q,r.text);if(HF)hfAfter=true;speak(r.text)}
     catch(e){out.textContent=e&&e.code==="not_granted"?"Hace falta permitir que la página consulte a Claude.":"No he podido responder ahora. Prueba otra vez.";hfSay(q,out.textContent);speak(out.textContent)}};ASK=ask;
   $("askBtn").onclick=ask;$("askTxt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();ask()}})}
 
@@ -2262,20 +2262,27 @@ function recCtx(q){const n=norm(q),rs=(REF.rec||[]).map(r=>r[0]).filter(Boolean)
   hit.forEach(({name})=>{const ing=ingsOf(name).map(i=>(i.qty?String(+(+i.qty).toFixed(2)).replace(".",",")+" "+i.ud+" ":"")+i.prod).join(", ");t+=`\nReceta «${name}» (2 raciones). Ingredientes: ${ing||"sin apuntar"}. Cómo se hace: ${notaOf(name)||"no está apuntado"}.\n`});
   return t?t+"\n":""}
 function hfSay(q,a){const el=$("hfOut");if(!el||!HF)return;el.hidden=false;el.innerHTML=`<b>Tú:</b> ${esc(q)}<br><b>Lola:</b> ${esc(a)}`}
-function hfUI(txt){const b=$("hfBtn");if(b){b.classList.toggle("on",HF);b.textContent=HF?(txt||"🎙 Te escucho · di «Lola…» · toca para parar"):"🎙 Manos libres: di «Lola…»"}}
+function hfUI(txt){const b=$("hfBtn");if(b){b.classList.toggle("on",HF);b.textContent=HF?(txt||"🎙 Te escucho · di «Lola…» · toca para apagar"):"🎙 Manos libres: di «Lola…»"}}
 function hfStart(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){banner("Este navegador no me deja escucharte de continuo. Usa el botón Hablar.");setTimeout(()=>banner(""),4000);HF=false;hfUI();return}
   try{hfRec=new SR();hfRec.lang="es-ES";hfRec.continuous=true;hfRec.interimResults=false;
     hfRec.onresult=e=>{const r=e.results[e.results.length-1];if(!r.isFinal)return;const t=r[0].transcript.trim();if(!t)return;
       const m=t.match(/\blola\b[\s,.:!¿?]*(.*)$/i);
+      if(hfWait&&/^(gracias|muchas gracias|ya est[aá]|nada m[aá]s|vale gracias|adi[oó]s|eso es todo)\b/i.test(t)){hfWait=false;hfAfter=false;speak("De nada. Aquí estoy si me necesitas.");return}
       if(m){const q=m[1].trim();if(q.length>2){hfWait=false;ASK&&ASK(q)}else{hfWait=true;speak("Dime.")}}
       else if(hfWait){hfWait=false;ASK&&ASK(t)}};
-    hfRec.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){HF=false;hfUI();keepAwake(false);banner("No me han dejado usar el micrófono aquí. Permite el micro para Lola en Ajustes → Safari → Micrófono.");setTimeout(()=>banner(""),6000)}};
+    hfRec.onerror=e=>{if((e.error==="not-allowed"||e.error==="service-not-allowed")&&hfAuto){hfRec=null;hfArmTouch();return}
+      if(e.error==="not-allowed"||e.error==="service-not-allowed"){HF=false;hfPref(false);hfUI();keepAwake(false);banner("No me han dejado usar el micrófono aquí. Permite el micro para Lola en Ajustes → Safari → Micrófono.");setTimeout(()=>banner(""),6000)}};
     hfRec.onend=()=>{hfRec=null;if(HF&&!speaking){clearTimeout(hfT);hfT=setTimeout(()=>{if(HF&&!speaking&&!hfRec)hfStart()},300)}};
     hfRec.start();hfUI()}catch(_){hfRec=null}}
 function hfPause(){if(hfRec){try{hfRec.abort()}catch(_){}hfRec=null}}
-function hfResume(){if(HF){clearTimeout(hfT);hfT=setTimeout(()=>{if(HF&&!speaking&&!hfRec)hfStart()},500)}}
-function hfToggle(){HF=!HF;if(HF){keepAwake(true);hfStart();speak("Te escucho. Llámame por mi nombre cuando quieras.")}else{hfPause();keepAwake(false);hfUI();const o=$("hfOut");if(o)o.hidden=true}}
+function hfResume(){if(HF){if(hfAfter){hfAfter=false;hfWait=true;clearTimeout(hfWT);hfWT=setTimeout(()=>{hfWait=false},9000)}clearTimeout(hfT);hfT=setTimeout(()=>{if(HF&&!speaking&&!hfRec)hfStart()},500)}}
+/* recuerda si quieres manos libres y lo enciende solo al abrir la app */
+let hfAuto=false,hfAfter=false,hfWT=null;
+function hfPref(v){try{if(v===undefined)return localStorage.getItem("lolaHF")!=="0";localStorage.setItem("lolaHF",v?"1":"0")}catch(_){return true}}
+function hfArmTouch(){hfUI("🎙 Toca la pantalla una vez y te escucho");const h=()=>{document.removeEventListener("pointerdown",h,true);hfAuto=false;if(HF&&!hfRec)hfStart()};document.addEventListener("pointerdown",h,true)}
+function hfAutoStart(){if(!hfPref()||!(window.SpeechRecognition||window.webkitSpeechRecognition))return;HF=true;hfAuto=true;keepAwake(true);hfStart();setTimeout(()=>{hfAuto=false},4000)}
+function hfToggle(){HF=!HF;hfPref(HF);if(HF){keepAwake(true);hfStart();speak("Te escucho. Llámame por mi nombre cuando quieras.")}else{hfPause();keepAwake(false);hfUI();const o=$("hfOut");if(o)o.hidden=true}}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&HF){keepAwake(true);if(!speaking&&!hfRec)hfStart()}});
 /* ---------- progreso ---------- */
 function weights(){return Object.keys(S.days).filter(k=>num(S.days[k].peso)!=null).sort().map(k=>({f:k,p:num(S.days[k].peso)}))}
@@ -2431,6 +2438,7 @@ claude.use("mcp").then(mcp=>{
   watchMenus();
 }).catch(()=>{S.menuState="error";render()});
 armGreet();
+setTimeout(hfAutoStart,1500);
 })();
 </script>
 
