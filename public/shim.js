@@ -20,7 +20,12 @@
     const $ = id => box.querySelector("#" + id);
     $("lgBtn").onclick = async () => {
       const { error } = await sb.auth.signInWithPassword({ email: $("lgMail").value.trim(), password: $("lgPass").value });
-      if (error) $("lgMsg").textContent = "No he podido entrar: revisa el correo y la contraseña.";
+      if (error) {
+        const m = String(error.message || error);
+        $("lgMsg").textContent = /invalid login/i.test(m) ? "El correo o la contraseña no coinciden con los de Supabase."
+          : /not confirmed/i.test(m) ? "Falta confirmar tu usuario en Supabase (Auto Confirm User)."
+          : "No he podido entrar (" + m + ").";
+      }
     };
   }
 
