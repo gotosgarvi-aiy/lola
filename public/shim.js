@@ -5,31 +5,22 @@
   let sb = null, session = null, readyResolve;
   const ready = new Promise(r => (readyResolve = r));
 
-  /* ---------- inicio de sesión con código por correo (funciona dentro de la app instalada) ---------- */
+  /* ---------- inicio de sesión con correo y contraseña (una sola vez; luego se recuerda) ---------- */
   function loginScreen() {
     const box = document.createElement("div");
     box.id = "lolaLogin";
     box.style.cssText = "position:fixed;inset:0;z-index:99999;background:#111a2e;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;font:16px -apple-system,sans-serif;text-align:center";
     box.innerHTML = `<img src="/icons/icon-192.png" style="width:96px;height:96px;border-radius:22px">
       <h2 style="margin:0">Hola, soy Lola</h2>
-      <p id="lgMsg" style="margin:0;opacity:.8;max-width:300px">Escribe tu correo y te mando un código para entrar.</p>
-      <input id="lgMail" type="email" autocomplete="email" placeholder="tu correo" style="font-size:18px;padding:12px;border-radius:12px;border:0;width:min(300px,90vw)">
-      <input id="lgCode" inputmode="numeric" autocomplete="one-time-code" placeholder="código" hidden style="font-size:22px;letter-spacing:4px;text-align:center;padding:12px;border-radius:12px;border:0;width:min(300px,90vw)">
-      <button id="lgBtn" style="font-size:18px;padding:12px 28px;border-radius:12px;border:0;background:#f5c542;color:#111;font-weight:700">Enviar código</button>`;
+      <p id="lgMsg" style="margin:0;opacity:.8;max-width:300px">Entra con tu correo y tu contraseña. Solo te lo pediré esta vez.</p>
+      <input id="lgMail" type="email" autocomplete="username" placeholder="tu correo" style="font-size:18px;padding:12px;border-radius:12px;border:0;width:min(300px,90vw)">
+      <input id="lgPass" type="password" autocomplete="current-password" placeholder="contraseña" style="font-size:18px;padding:12px;border-radius:12px;border:0;width:min(300px,90vw)">
+      <button id="lgBtn" style="font-size:18px;padding:12px 28px;border-radius:12px;border:0;background:#f5c542;color:#111;font-weight:700">Entrar</button>`;
     document.body.appendChild(box);
     const $ = id => box.querySelector("#" + id);
-    let sent = false;
     $("lgBtn").onclick = async () => {
-      const email = $("lgMail").value.trim();
-      if (!sent) {
-        const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-        if (error) { $("lgMsg").textContent = "No he podido enviar el código: " + error.message; return; }
-        sent = true; $("lgCode").hidden = false; $("lgCode").focus();
-        $("lgMsg").textContent = "Te he mandado un código al correo. Escríbelo aquí."; $("lgBtn").textContent = "Entrar";
-      } else {
-        const { error } = await sb.auth.verifyOtp({ email, token: $("lgCode").value.trim(), type: "email" });
-        if (error) { $("lgMsg").textContent = "El código no vale: " + error.message; return; }
-      }
+      const { error } = await sb.auth.signInWithPassword({ email: $("lgMail").value.trim(), password: $("lgPass").value });
+      if (error) $("lgMsg").textContent = "No he podido entrar: revisa el correo y la contraseña.";
     };
   }
 
