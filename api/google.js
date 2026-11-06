@@ -3,13 +3,21 @@ import crypto from "node:crypto";
 import { requireUser } from "./_auth.js";
 
 let tok = { v: "", exp: 0 };
-async function token() {
+// lee la llave de la cuenta de servicio aunque al pegarla se hayan colado comillas tipográficas o espacios
+export function serviceAccount() {
+  const raw = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "").trim().replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
+  if (!raw) throw new Error("falta GOOGLE_SERVICE_ACCOUNT_JSON");
+  const sa = JSON.parse(raw);
+  sa.private_key = String(sa.private_key || "").replace(/\\n/g, "\n");
+  return sa;
+}
+export async function token() {
   if (tok.exp > Date.now() + 60000) return tok.v;
-  const sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const sa = serviceAccount();
   const now = Math.floor(Date.now() / 1000);
   const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
   const head = b64({ alg: "RS256", typ: "JWT" });
-  const body = b64({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar.readonly", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 });
+  const body = b64({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 });
   const sig = crypto.createSign("RSA-SHA256").update(head + "." + body).sign(sa.private_key, "base64url");
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -20,7 +28,7 @@ async function token() {
   tok = { v: j.access_token, exp: Date.now() + j.expires_in * 1000 };
   return tok.v;
 }
-async function g(url, opts = {}) {
+export async function g(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { Authorization: "Bearer " + (await token()), "content-type": "application/json", ...(opts.headers || {}) } });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error((j.error && j.error.message) || "google"); e.status = r.status; throw e; }

@@ -1,0 +1,11 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estado de Lola</title>
+<style>body{margin:0;padding:24px 16px;font:17px -apple-system,sans-serif;background:#111a2e;color:#fff}h1{font-size:22px}li{list-style:none;margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#1d2a47}b{display:block}small{opacity:.8;word-break:break-word}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/shim.js"></script></head><body>
+<h1>⭐ Estado de Lola</h1><ul id="l"><li>Comprobando…</li></ul>
+<script>
+claude.use("db").then(async()=>{const s=claude.session();
+  const r=await fetch("/api/status",{headers:s?{Authorization:"Bearer "+s.access_token}:{}});const j=await r.json();
+  document.getElementById("l").innerHTML=j.map(x=>`<li><b>${x.ok?"✅":"❌"} ${x.paso}</b><small>${String(x.detalle||"").replace(/</g,"&lt;")}</small></li>`).join("")});
+</script></body></html>
