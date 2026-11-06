@@ -3,8 +3,9 @@ export async function requireUser(req) {
   const h = req.headers.authorization || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : "";
   if (!token) return null;
-  const r = await fetch(process.env.SUPABASE_URL + "/auth/v1/user", {
-    headers: { Authorization: "Bearer " + token, apikey: process.env.SUPABASE_ANON_KEY }
+  const base = new URL(process.env.SUPABASE_URL.trim()).origin;
+  const r = await fetch(base + "/auth/v1/user", {
+    headers: { Authorization: "Bearer " + token, apikey: process.env.SUPABASE_ANON_KEY.trim() }
   });
   if (!r.ok) return null;
   const u = await r.json();
