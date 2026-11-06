@@ -39,8 +39,24 @@
       if (s) { const l = document.getElementById("lolaLogin"); if (l) l.remove(); readyResolve(); }
     });
     if (session) readyResolve(); else loginScreen();
+    ready.then(importOnce).catch(e => console.error("importación", e));
   }
   const booted = boot().catch(e => { console.error(e); readyResolve(); });
+
+  /* Trae una sola vez los datos de la Lola de claude.ai (sin pisar lo que ya haya aquí) */
+  async function importOnce() {
+    if (!session) return;
+    const { data: mark } = await sb.from("docs").select("id").eq("col", "perfil").eq("id", "importado").maybeSingle();
+    if (mark) return;
+    const seed = await fetch("/api/import", { headers: authHeaders() }).then(r => (r.ok ? r.json() : null));
+    if (!seed) return;
+    const rows = [];
+    for (const [col, docs] of Object.entries(seed)) for (const [id, data] of Object.entries(docs)) rows.push({ col, id, data });
+    const { error } = await sb.from("docs").upsert(rows, { onConflict: "col,id", ignoreDuplicates: true });
+    if (error) throw error;
+    await sb.from("docs").upsert({ col: "perfil", id: "importado", data: { ts: Date.now(), n: rows.length } });
+    for (const col of Object.keys(seed)) if (cache[col]) { await loadCol(col); emit(col); }
+  }
 
   const authHeaders = () => (session ? { Authorization: "Bearer " + session.access_token } : {});
 
