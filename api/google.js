@@ -60,6 +60,29 @@ const tools = {
       if (a.endTime) q.set("timeMax", madrid(a.endTime));
       (a.eventType || []).forEach(t => q.append("eventTypes", t === "BIRTHDAY" ? "birthday" : t === "FROM_GMAIL" ? "fromGmail" : t === "OUT_OF_OFFICE" ? "outOfOffice" : "default"));
       return g("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(id) + "/events?" + q);
+    },
+    // crea un evento: date "AAAA-MM-DD", time "HH:MM" (vacío = todo el día), durationMin
+    create_event: a => {
+      const id = a.calendarId === "primary" ? process.env.GOOGLE_PRIMARY_CALENDAR : a.calendarId;
+      let start, end;
+      if (a.time) {
+        const [h, m] = a.time.split(":").map(Number);
+        const t0 = h * 60 + m, t1 = t0 + (Number(a.durationMin) || 90);
+        const hh = x => String(Math.floor(x / 60) % 24).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0");
+        const endDate = t1 >= 1440 ? new Date(Date.parse(a.date + "T00:00:00Z") + 86400000).toISOString().slice(0, 10) : a.date;
+        start = { dateTime: a.date + "T" + hh(t0) + ":00", timeZone: "Europe/Madrid" };
+        end = { dateTime: endDate + "T" + hh(t1) + ":00", timeZone: "Europe/Madrid" };
+      } else {
+        start = { date: a.date };
+        end = { date: new Date(Date.parse(a.date + "T00:00:00Z") + 86400000).toISOString().slice(0, 10) };
+      }
+      return g("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(id) + "/events", { method: "POST", body: JSON.stringify({ summary: a.summary, description: "Apuntado por Lola", start, end }) });
+    },
+    delete_event: async a => {
+      const id = a.calendarId === "primary" ? process.env.GOOGLE_PRIMARY_CALENDAR : a.calendarId;
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(id) + "/events/" + encodeURIComponent(a.eventId), { method: "DELETE", headers: { Authorization: "Bearer " + (await token()) } });
+      if (!r.ok && r.status !== 410) throw new Error("no se ha podido borrar");
+      return { ok: true };
     }
   }
 };

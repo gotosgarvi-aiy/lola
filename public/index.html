@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>ul.notas{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}ul.notas li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}ul.notas li span{flex:1 1 60%}ul.notas li .btn{margin-left:auto;padding:2px 10px}</style>
 <style>
 /* Layout: cuaderno de una columna para el móvil, con pestañas abajo; cada día es una hoja */
 :root{
@@ -681,7 +682,7 @@ body.dia .star .spb{opacity:.9}
 </div>
 <div class="sheet" id="sheetAsk" hidden role="dialog" aria-modal="true" aria-label="Hablar"><div class="sbody"><div class="row between"><h2>¿En qué te ayudo?</h2><button class="btn" data-close type="button">Cerrar</button></div>
   <button class="micbig" id="micBtn" type="button" aria-label="Hablar"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg></button><div class="small muted" id="micHint" style="text-align:center">Toca el micro y habla, o escribe abajo</div><div id="askHome"></div><div id="voicePick" class="vpick"></div></div></div>
-<div class="sheet" id="sheetTasks" hidden role="dialog" aria-modal="true" aria-label="Tareas"><div class="sbody"><div class="row between"><h2>Tareas</h2><button class="btn" data-close type="button">Cerrar</button></div><div id="tasksToday"></div><div id="tasksHome" style="display:grid;gap:10px"></div></div></div>
+<div class="sheet" id="sheetTasks" hidden role="dialog" aria-modal="true" aria-label="Tareas"><div class="sbody"><div class="row between"><h2>Tareas</h2><button class="btn" data-close type="button">Cerrar</button></div><div id="tasksToday"></div><div id="tasksHome" style="display:grid;gap:10px"></div><div id="notasBox"></div></div></div>
 <nav class="tabs" aria-label="Secciones">
   <a href="#inicio" data-v="inicio"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L3.3 9.2l6.1-.6z"/></svg>Inicio</a>
   <a href="#hoy" data-v="hoy"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>Hoy</a>
@@ -699,7 +700,7 @@ const DEF = {altura:160, pesoInicial:61, meta1:56, metaFinal:50, inicio:"2026-11
 const SHEET = {id:"1Qz9s709P1Gkqn7y8sDKZAuU9pl0TSOwtWCczB-P2pYY", range:"'Menú noviembre'!A4:K60"};
 const MERIENDA = "Si tienes hambre: fruta, yogur natural o un puñado de frutos secos";
 const DRINKS = [{k:"cafe",n:"Café con leche"},{k:"cafeSolo",n:"Café solo"},{k:"infusion",n:"Infusión"},{k:"refresco0",n:"Refresco sin azúcar"},{k:"azucar",n:"Refresco o zumo con azúcar"},{k:"alcohol",n:"Alcohol",note:"Noviembre: 0"}];
-const S = {date: iso(new Date()), week: null, days:{}, meals:[], perfil:{...DEF}, resumenes:{}, menu:{}, menuState:"cargando", moves:[], ninos:{}, tareas:[],kcal:{},extras:[],aprendido:{}, batch:{}, findes:{}};
+const S = {date: iso(new Date()), week: null, days:{}, meals:[], perfil:{...DEF}, resumenes:{}, menu:{}, menuState:"cargando", moves:[], ninos:{}, tareas:[],notas:[],kcal:{},extras:[],aprendido:{}, batch:{}, findes:{}};
 let db=null, assets=null, sample=null, imgOK=false, pendingMomento="Comida", pendingTexto="", mcpNS=null;
 const $ = id => document.getElementById(id);
 
@@ -2235,7 +2236,10 @@ function startMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecogn
     rec.onresult=e=>{let t="";for(const r of e.results)t+=r[0].transcript;$("askTxt").value=t;if(e.results[e.results.length-1].isFinal){stopMic();$("askBtn").click()}};
     rec.onerror=e=>{stopMic();fallback()};rec.onend=()=>{micOn=false;$("micBtn").classList.remove("on")};
     rec.start();micOn=true;$("micBtn").classList.add("on");$("micHint").textContent="Te escucho…"}catch(_){fallback()}}
-function renderTasksToday(){const f=S.date,t=tasksOn(f),c=rowsCasa(f);
+function renderNotas(){const b=$("notasBox");if(!b)return;const n=S.notas||[];
+  b.innerHTML=`<div class="tlh">Tus notas e ideas</div>`+(n.length?`<ul class="notas">${n.slice(0,50).map(x=>`<li><span>${esc(x.texto)}</span> <small class="muted">${esc(fmtLong.format(new Date(x.ts||Date.now())))}</small> <button class="btn" data-nota-del="${esc(x.id)}" type="button" aria-label="Borrar nota">×</button></li>`).join("")}</ul>`:`<div class="muted small">Dile «Lola, apunta…» y lo guardo aquí.</div>`)}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-nota-del]");if(b&&db){db.collection("notas").doc(b.dataset.notaDel).delete().catch(()=>{})}});
+function renderTasksToday(){renderNotas();const f=S.date,t=tasksOn(f),c=rowsCasa(f);
   $("tasksToday").innerHTML=(t.length||c.length)?`<div class="tlh" style="margin-top:0">Para ${f===iso(new Date())?"hoy":esc(fmtLong.format(parse(f)))}</div><ul>${[...c,...t.map(x=>(x.hora?x.hora+" ":"")+x.txt)].map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<div class="muted">No tienes nada apuntado para este día.</div>`}
 function rowsCasa(f){const r=dayRows(f).find(x=>x.k==="Casa");const own=new Set(tasksOn(f).map(x=>(x.hora?x.hora+" ":"")+x.txt));return r?r.v.filter(x=>!own.has(x)):[]}
 function initHomeNav(){$("homePrev").onclick=()=>{S.date=addDays(S.date,-1);render()};$("homeNext").onclick=()=>{S.date=addDays(S.date,1);render()};$("homeToday").onclick=()=>{S.date=iso(new Date());render()}}
@@ -2244,15 +2248,41 @@ function initVoz(){const b=$("hablaBtn");b.textContent="🔊 "+saludo();
   const hs=()=>{if(speaking){speechSynthesis.cancel();speaking=false;keepAwake(false);$("homeStar").classList.remove("talking");$("hablaBtn").textContent="🔊 "+saludo();return}speak(speechText(S.date))};
   $("homeStar").onclick=hs;$("homeListen").onclick=hs;$("hfBtn").onclick=hfToggle;
   const ask=async(qq)=>{const q=(typeof qq==="string"?qq:$("askTxt").value).trim();if(!q)return;const out=$("askOut");out.hidden=false;hfSay(q,"Pensando…");
+    if(/^(deshaz|deshacer|b[oó]rralo|qu[ií]talo|no,? (lo )?quites|me he equivocado)/i.test(q)){try{const t=await undoAction();out.textContent=t;hfSay(q,t);speak(t)}catch(_){speak("No he podido deshacerlo.")}return}
     if(/^(hola|buen[oa]s)/i.test(q)&&q.length<25||/^(cu[eé]ntame|dime)( qu[eé] tengo)?( el d[ií]a de)? hoy\??$/i.test(q)||/^qu[eé] tengo hoy\??$/i.test(q)){const t=speechText(S.date);out.textContent=t;hfSay(q,t);speak(t);return}
     if(!sample){out.textContent="Para responder preguntas hace falta permitir que la página consulte a Claude.";return}
     out.textContent="Pensando…";
+    if(ACT_RE.test(q)){try{const t=await doAction(q);out.textContent=t;hfSay(q,t);if(HF)hfAfter=true;speak(t);return}catch(e){console.error(e)}}
     const ctx=[S.date,addDays(S.date,1)].map(f=>`${cap(fmtLong.format(parse(f)))}:\n`+dayRows(f).map(r=>`- ${r.k}: ${r.v.join(" | ")}`).join("\n")).join("\n\n");
     const week=[0,1,2,3,4,5,6].map(i=>{const f=addDays(monday(S.date),i);return `${cap(fmtLong.format(parse(f)))}: ${weekAgenda(f)} · Calendario: ${(CAL.byDay[f]||[]).map(e=>(e.h||"todo el día")+" "+e.t).join("; ")||"nada"} · Ejercicio: ${ROUT[SCHED[parse(f).getDay()]].t}`}).join("\n");
     try{const r=await sample(`Eres el asistente personal de Nina que se llama Lola, dentro de su app. Contesta en español, en 1 a 4 frases cortas y naturales, pensadas para leerse en voz alta (sin listas ni emojis). Usa SOLO los datos de abajo; si algo no está, di que no lo tienes apuntado. No inventes nada.\n\nHoy y mañana:\n${ctx}\n\nResto de la semana:\n${week}\n\n${recCtx(q)}Pregunta de Nina: ${q}`,{modelTier:"quick",onText:({text})=>{out.textContent=text}});
       out.textContent=r.text;hfSay(q,r.text);if(HF)hfAfter=true;speak(r.text)}
     catch(e){out.textContent=e&&e.code==="not_granted"?"Hace falta permitir que la página consulte a Claude.":"No he podido responder ahora. Prueba otra vez.";hfSay(q,out.textContent);speak(out.textContent)}};ASK=ask;
   $("askBtn").onclick=ask;$("askTxt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();ask()}})}
+
+/* ---------- segundo cerebro: apuntar ideas, tareas y citas del calendario ---------- */
+const ACT_RE=/\b(apunta|ap[uú]ntame|anota|an[oó]tame|guarda|gu[aá]rdame|recu[eé]rdame|recordarme|ponme|pon en el calendario|a[nñ]ade|crea|tengo una idea|idea:|tenemos (una |un )?(cena|comida|cita|cumple|reuni[oó]n|boda|excursi[oó]n|fiesta)|tengo (una |un )?(cita|m[eé]dico|dentista|reuni[oó]n))\b/i;
+let LAST_ACT=null;
+async function doAction(q){
+  const hoy=iso(new Date()),dow=cap(fmtLong.format(new Date()));
+  const j=await sample.json(`Eres Lola, la asistente de Nina. Hoy es ${dow} (${hoy}), zona horaria Europe/Madrid. Nina te ha dicho: «${q}».
+Decide qué quiere y devuelve SOLO este JSON:
+{"tipo":"nota"|"tarea"|"evento"|"nada","texto":"la nota o la tarea, corta y clara","titulo":"título del evento","fecha":"AAAA-MM-DD","hora":"HH:MM o vacío si es todo el día","duracionMin":número,"calendario":"familia" si implica a la familia o a los niños, si no "nina","respuesta":"una frase corta en español para leer en voz alta confirmando lo que has apuntado, con el día dicho con palabras"}
+Reglas: "nota" para ideas o cosas que quiere recordar sin fecha. "tarea" si es algo que tiene que hacer un día concreto (sin hora de evento). "evento" si es una cita, cena, cumple o plan con día. Calcula la fecha exacta a partir de hoy (si dice "el viernes", es el próximo viernes). Si falta el día de un evento, usa "nada" y en respuesta pregunta qué día. Nunca inventes datos que no haya dicho.`,{modelTier:"quick"});
+  if(!j||j.tipo==="nada"||!j.tipo)return (j&&j.respuesta)||"No he entendido qué quieres que apunte. ¿Me lo repites?";
+  if(j.tipo==="nota"){const r=await db.collection("notas").add({texto:j.texto||q,ts:Date.now()});LAST_ACT={tipo:"nota",id:r.id};return j.respuesta||"Apuntado en tus notas."}
+  if(j.tipo==="tarea"){const r=await db.collection("tareas").add({txt:j.texto||q,hora:"",fecha:/^\d{4}-\d{2}-\d{2}$/.test(j.fecha||"")?j.fecha:hoy,ts:Date.now()});LAST_ACT={tipo:"tarea",id:r.id};return j.respuesta||"Apuntado en tus tareas."}
+  if(j.tipo==="evento"){if(!/^\d{4}-\d{2}-\d{2}$/.test(j.fecha||""))return "¿Qué día es? Dímelo y lo apunto.";
+    const cal=j.calendario==="familia"?CALS[1].id:"primary";
+    const r=await mcpNS.callTool("Google Calendar","create_event",{calendarId:cal,summary:j.titulo||j.texto||q,date:j.fecha,time:j.hora||"",durationMin:j.duracionMin||90},{cache:false});
+    const ev=r&&r.payload;LAST_ACT={tipo:"evento",cal,id:ev&&ev.id};setTimeout(()=>{try{calWeek(monday(j.fecha))}catch(_){}},800);
+    return j.respuesta||"Apuntado en tu calendario."}
+  return j.respuesta||"Hecho."}
+async function undoAction(){const a=LAST_ACT;if(!a)return "No tengo nada que deshacer.";LAST_ACT=null;
+  if(a.tipo==="nota")await db.collection("notas").doc(a.id).delete();
+  else if(a.tipo==="tarea")await db.collection("tareas").doc(a.id).delete();
+  else if(a.tipo==="evento"&&a.id)await mcpNS.callTool("Google Calendar","delete_event",{calendarId:a.cal,eventId:a.id},{cache:false});
+  return "Vale, lo he quitado."}
 
 /* ---------- manos libres: escucha «Lola …» mientras la app está abierta ---------- */
 let ASK=null,HF=false,hfRec=null,hfWait=false,hfT=null;
@@ -2420,6 +2450,7 @@ claude.use("db").then(d=>{db=d;if(!d){clearTimeout(timeout);banner("Entra con tu
   d.collection("resumenes").onSnapshot(s=>{const n={};s.docs.forEach(x=>{n[x.id]=x.data()});S.resumenes=n;render()});
   d.collection("movimientos").onSnapshot(s=>{S.moves=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.ts||0)-(a.ts||0));render()});
   d.collection("ninos").onSnapshot(s=>{const n={};s.docs.forEach(x=>{n[x.id]=x.data()});S.ninos=n;render()});
+  d.collection("notas").onSnapshot(s=>{S.notas=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.ts||0)-(a.ts||0));if(!$("sheetTasks").hidden)renderTasksToday()});
   d.collection("tareas").onSnapshot(s=>{S.tareas=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(a.ts||0)-(b.ts||0));render()});
   d.collection("batch").onSnapshot(s=>{const n={};s.docs.forEach(x=>{n[x.id]=x.data()});S.batch=n;render()});
   d.collection("findes").onSnapshot(s=>{const n={};s.docs.forEach(x=>{n[x.id]=x.data()});S.findes=n;render()});
