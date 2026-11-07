@@ -1,5 +1,6 @@
 // Pasa las preguntas de Lola a la API de Anthropic y devuelve el texto según llega.
 import { requireUser } from "./_auth.js";
+import { anthropicKey, hide } from "./_keys.js";
 
 const MODELS = {
   default: process.env.MODEL_DEFAULT || "claude-sonnet-5-5",
@@ -19,11 +20,11 @@ export default async function handler(req, res) {
   ];
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    headers: { "content-type": "application/json", "x-api-key": anthropicKey(), "anthropic-version": "2023-06-01" },
     body: JSON.stringify({ model: MODELS[tier] || MODELS.default, max_tokens: Math.min(maxTokens || 8000, 16000), stream: true, messages: [{ role: "user", content }] })
   });
   if (r.status === 429) return res.status(429).send("límite");
-  if (!r.ok) return res.status(502).send(await r.text());
+  if (!r.ok) return res.status(502).send(hide(await r.text()));
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");

@@ -1,22 +1,23 @@
 // Comprueba, paso a paso, que Lola tiene todo lo que necesita (para la página /estado).
 import { requireUser } from "./_auth.js";
+import { anthropicKey, hide } from "./_keys.js";
 import { serviceAccount, token, g } from "./google.js";
 const SHEET = "1Qz9s709P1Gkqn7y8sDKZAuU9pl0TSOwtWCczB-P2pYY";
 const FAMILIA = "family16639309143627778969@group.calendar.google.com";
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   const out = [];
-  const add = (paso, ok, detalle) => out.push({ paso, ok, detalle });
+  const add = (paso, ok, detalle) => out.push({ paso, ok, detalle: hide(detalle) });
   const user = await requireUser(req).catch(() => null);
   add("Has entrado en Lola", !!user, user ? user.email : "Sin sesión o correo no permitido (ALLOWED_EMAILS)");
   if (!user) return res.json(out);
   add("Clave de la IA (ANTHROPIC_API_KEY)", !!process.env.ANTHROPIC_API_KEY, process.env.ANTHROPIC_API_KEY ? "puesta" : "falta en Vercel");
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: process.env.MODEL_QUICK || "claude-haiku-5-5", max_tokens: 5, messages: [{ role: "user", content: "Di hola" }] }) });
+      const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "content-type": "application/json", "x-api-key": anthropicKey(), "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: process.env.MODEL_QUICK || "claude-haiku-5-5", max_tokens: 5, messages: [{ role: "user", content: "Di hola" }] }) });
       const j = await r.json().catch(() => ({}));
-      add("La IA contesta", r.ok, r.ok ? "sí" : (j.error && j.error.message) || "error " + r.status);
-    } catch (e) { add("La IA contesta", false, e.message); }
+      add("La IA contesta", r.ok, r.ok ? "sí" : hide((j.error && j.error.message) || "error " + r.status));
+    } catch (e) { add("La IA contesta", false, /invalid header/i.test(e.message) ? "La clave tiene texto de más: pega solo la clave (empieza por sk-ant-)" : hide(e.message)); }
   }
   let sa = null;
   try { sa = serviceAccount(); add("Llave de Google (GOOGLE_SERVICE_ACCOUNT_JSON)", true, sa.client_email); }
